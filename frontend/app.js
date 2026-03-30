@@ -21,30 +21,88 @@
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
     const suggestionCards = document.querySelectorAll('.suggestion-card');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const fileBadgeArea = document.getElementById('fileBadgeArea');
+    const fileBadgeName = document.getElementById('fileBadgeName');
+    const removeFileBtn = document.getElementById('removeFileBtn');
+    const kbUploadBtn = document.getElementById('kbUploadBtn');
+    const kbFileInput = document.getElementById('kbFileInput');
+    const kbDocList = document.getElementById('kbDocList');
+    const kbCount = document.getElementById('kbCount');
 
     // --- State ---
     let chatHistory = [];
     let isLoading = false;
     let lastGeneratedCode = '';
+    let attachedFile = null; // { filename, content }
 
     // --- API ---
     const API_URL = '/api/chat';
+    const UPLOAD_URL = '/api/upload';
+
+    const AGENT_ICONS = {
+        'PM Agent': 'https://cdn-icons-png.flaticon.com/512/3588/3588634.png', // Placeholder Cartoon PM
+        'R&D Agent': 'https://cdn-icons-png.flaticon.com/512/2103/2103633.png', // Placeholder Cartoon RD
+        'Frontend Agent': 'https://cdn-icons-png.flaticon.com/512/2721/2721614.png', // Placeholder Cartoon FE
+        'Backend Agent': 'https://cdn-icons-png.flaticon.com/512/2166/2166823.png', // Placeholder Cartoon BE
+        'Tester Agent': 'https://cdn-icons-png.flaticon.com/512/4233/4233830.png', // Placeholder Cartoon QA
+        'DevOps Agent': 'https://cdn-icons-png.flaticon.com/512/2103/2103611.png', // Placeholder Cartoon DevOps
+        'Consultant Agent': 'https://cdn-icons-png.flaticon.com/512/4140/4140037.png', // Placeholder Cartoon Consultant
+        'AI Agent': 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png' // Default AI
+    };
+
+    // --- File Upload ---
+
+    async function handleFileUpload(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetch(UPLOAD_URL, { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'Upload failed');
+            }
+            const data = await res.json();
+            attachedFile = { filename: data.filename, content: data.content };
+            fileBadgeName.textContent = data.filename;
+            fileBadgeArea.style.display = 'flex';
+            updateSendButton();
+        } catch (e) {
+            alert(`Upload error: ${e.message}`);
+        }
+    }
+
+    function clearAttachedFile() {
+        attachedFile = null;
+        fileInput.value = '';
+        fileBadgeArea.style.display = 'none';
+        updateSendButton();
+    }
 
     async function sendMessage(userMessage) {
-        if (isLoading || !userMessage.trim()) return;
+        if (isLoading || (!userMessage.trim() && !attachedFile)) return;
         isLoading = true;
+
+        // Build final message — prepend file content if attached
+        let finalMessage = userMessage.trim();
+        if (attachedFile) {
+            finalMessage = `[File: ${attachedFile.filename}]\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${finalMessage || 'Read the file above and build a website based on it.'}`;
+        }
 
         // Hide welcome screen
         if (welcomeScreen) {
             welcomeScreen.style.display = 'none';
         }
 
-        // Add user message
-        appendMessage('user', userMessage);
-        chatHistory.push({ role: 'user', content: userMessage });
+        // Add user message (show original text, not the full file blob)
+        const displayMessage = userMessage.trim() || `📎 ${attachedFile?.filename}`;
+        appendMessage('user', displayMessage);
+        chatHistory.push({ role: 'user', content: finalMessage });
 
-        // Clear input
+        // Clear input + file
         messageInput.value = '';
+        clearAttachedFile();
         autoResize(messageInput);
         updateSendButton();
 
@@ -56,8 +114,8 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: userMessage,
-                    history: chatHistory.slice(-10) // last 10 messages for context
+                    message: finalMessage,
+                    history: chatHistory.slice(-10)
                 }),
             });
 
@@ -128,6 +186,12 @@
             else if (agentClass === "agent-backend") avatar = "BE";
             else if (agentClass === "agent-tester") avatar = "QA";
             else if (agentClass === "agent-devops") avatar = "DO";
+            
+            // Check for cartoon icon
+            const iconUrl = AGENT_ICONS[agentNameStr] || AGENT_ICONS['AI Agent'];
+            if (iconUrl) {
+                avatar = `<img src="${iconUrl}" alt="${agentNameStr}">`;
+            }
         }
 
         const roleName = role === 'user' ? 'You' : `<span class="agent-badge">${agentNameStr}</span>`;
@@ -285,12 +349,13 @@
     }
 
     function updateSendButton() {
-        sendBtn.disabled = !messageInput.value.trim() || isLoading;
+        sendBtn.disabled = (!messageInput.value.trim() && !attachedFile) || isLoading;
     }
 
     function newChat() {
         chatHistory = [];
         lastGeneratedCode = '';
+        clearAttachedFile();
         chatMessages.innerHTML = '';
 
         // Re-add welcome screen
@@ -373,6 +438,80 @@
             sidebar.classList.remove('open');
         }
     });
+
+    // File upload (attach to message)
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) handleFileUpload(fileInput.files[0]);
+    });
+    removeFileBtn.addEventListener('click', clearAttachedFile);
+
+    // --- Knowledge Base ---
+
+    async function loadDocuments() {
+        try {
+            const res = await fetch('/api/documents');
+            const data = await res.json();
+            renderDocumentList(data.documents);
+        } catch (e) { console.error('Failed to load documents', e); }
+    }
+
+    function renderDocumentList(docs) {
+        kbCount.textContent = `${docs.length} doc${docs.length !== 1 ? 's' : ''}`;
+        kbDocList.innerHTML = '';
+        docs.forEach(doc => {
+            const item = document.createElement('div');
+            item.className = 'kb-doc-item';
+            item.innerHTML = `
+                <div class="kb-doc-info">
+                    <span class="kb-doc-name" title="${doc.filename}">${doc.filename}</span>
+                    <span class="kb-doc-meta">${doc.chunks} chunks</span>
+                </div>
+                <button class="kb-delete-btn" data-id="${doc.doc_id}" title="Remove">✕</button>
+            `;
+            item.querySelector('.kb-delete-btn').addEventListener('click', () => deleteDocument(doc.doc_id));
+            kbDocList.appendChild(item);
+        });
+    }
+
+    async function uploadToKB(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        kbUploadBtn.disabled = true;
+        kbUploadBtn.textContent = 'Processing...';
+        try {
+            const res = await fetch('/api/upload?store=true', { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'Upload failed');
+            }
+            await loadDocuments();
+        } catch (e) {
+            alert(`Knowledge Base error: ${e.message}`);
+        } finally {
+            kbUploadBtn.disabled = false;
+            kbUploadBtn.textContent = '+ Add Document';
+            kbFileInput.value = '';
+        }
+    }
+
+    async function deleteDocument(docId) {
+        if (!confirm('Remove this document from the knowledge base?')) return;
+        try {
+            const res = await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            await loadDocuments();
+        } catch (e) {
+            alert(`Delete error: ${e.message}`);
+        }
+    }
+
+    kbUploadBtn.addEventListener('click', () => kbFileInput.click());
+    kbFileInput.addEventListener('change', () => {
+        if (kbFileInput.files[0]) uploadToKB(kbFileInput.files[0]);
+    });
+
+    loadDocuments();
 
     // Focus input on load
     messageInput.focus();
