@@ -20,6 +20,9 @@ User Input
             └─→ Consultant Agent
 ```
 
+![alt text](image-1.png)
+![alt text](image.png)
+
 ---
 
 ## Tech Stack
