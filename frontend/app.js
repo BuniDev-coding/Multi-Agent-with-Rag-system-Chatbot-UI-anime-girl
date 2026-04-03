@@ -46,10 +46,10 @@
         'R&D Agent': '/public/Image/4b0f5baf86364fd9a36c17f3b54d62a79d62ea1d.jpg',
         'Frontend Agent': '/public/Image/3188d870220b0fb07ae4f84250198e79_2636008482012336615.jpg',
         'Backend Agent': '/public/Image/4135fb60311b7b13cb438822d9086e78.jpg',
-        'Tester Agent': '/public/Image/c38ed290-a90c-4a04-bd5a-6afcc861e35f_sparkle_lighter_320x320px_alpha.gif',
-        'DevOps Agent': '/public/Image/Screenshot 2026-03-30 141241.png',
-        'Consultant Agent': '/public/Image/c8c004a91949a94086be5c130d769785.png',
-        'AI Agent': '/public/Image/cosmic-princess-kaguya-runami-yachiyo-hd-wallpaper-preview.jpg'
+        'Tester Agent': '/public/Image/Screenshot 2026-03-30 141241.png',
+        'DevOps Agent': '/public/Image/c38ed290-a90c-4a04-bd5a-6afcc861e35f_sparkle_lighter_320x320px_alpha.gif',
+        'Consultant Agent': '/public/Image/cosmic-princess-kaguya-runami-yachiyo-hd-wallpaper-preview.jpg',
+        'AI Agent': '/public/Image/c8c004a91949a94086be5c130d769785.png'
     };
 
     // --- File Upload ---
